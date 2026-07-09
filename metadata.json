@@ -1,0 +1,6 @@
+{
+  "name": "Suivi GPS et Gestion de Flotte",
+  "description": "Application de suivi en temps réel de véhicules, alertes de vitesse, contrôle à distance des portes, historique des trajets, gestion du carburant et maintenance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
