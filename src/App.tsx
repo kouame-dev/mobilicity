@@ -166,6 +166,35 @@ export default function App() {
   const [activeRole, setActiveRole] = useState<'admin' | 'lead' | 'cashier'>('admin');
   const [selectedLeadId, setSelectedLeadId] = useState<string>('TL-201');
 
+  // Custom added states for Web Profiling & Password Recovery
+  const [adminUser, setAdminUser] = useState({
+    name: "Administrateur Système",
+    login: "admin",
+    email: "admin@fleettrack.com",
+    phone: "+225 07 01 02 03 04",
+    password: "password123",
+    photo: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop"
+  });
+
+  const [cashierUser, setCashierUser] = useState({
+    name: "Mariam Koné",
+    login: "caissier",
+    email: "m.kone@fleettrack.com",
+    phone: "+225 05 99 88 77 66",
+    password: "password123",
+    photo: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop"
+  });
+
+  const [isResettingPassword, setIsResettingPassword] = useState<boolean>(false);
+  const [resetStep, setResetStep] = useState<number>(1);
+  const [resetLoginInput, setResetLoginInput] = useState<string>('');
+  const [resetNewPassword, setResetNewPassword] = useState<string>('');
+  const [resetOtpCode, setResetOtpCode] = useState<string>('');
+  const [resetUserOtpInput, setResetUserOtpInput] = useState<string>('');
+  const [resetError, setResetError] = useState<string>('');
+  const [resetSuccess, setResetSuccess] = useState<string>('');
+  const [showWebProfileModal, setShowWebProfileModal] = useState<boolean>(false);
+
   // Ivory Coast mobile money networks API configurations
   const [mobileMoneyApis, setMobileMoneyApis] = useState({
     mtn: { apiKey: 'mtn_sk_live_902h3nd8y4m2', merchantId: 'MTN-CI-8892', url: 'https://api.mtn.ci/v1/payments', enabled: true },
@@ -595,6 +624,168 @@ export default function App() {
   const unreadAlertsCount = alerts.filter(a => !a.isRead).length;
 
   if (!isFleetLoggedIn) {
+    if (isResettingPassword) {
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans select-none selection:bg-indigo-500 selection:text-white">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-60 pointer-events-none"></div>
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-500/10 filter blur-[120px] rounded-full pointer-events-none"></div>
+          
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative z-10 transition-all">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 bg-indigo-600/20 border border-indigo-500/30 rounded-2xl flex items-center justify-center mx-auto text-indigo-400">
+                <Settings className="w-6 h-6" />
+              </div>
+              <h2 className="text-base font-bold text-white uppercase">Réinitialisation de Mot de Passe</h2>
+              <p className="text-[11px] text-slate-400">Récupérez l'accès à votre console de gestion</p>
+            </div>
+
+            {resetStep === 1 ? (
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                setResetError('');
+                setResetSuccess('');
+                const input = resetLoginInput.trim().toLowerCase();
+                
+                // Lookup account
+                let accountFound = false;
+                if (input === adminUser.login.toLowerCase() || input === adminUser.email.toLowerCase()) {
+                  accountFound = true;
+                } else if (input === cashierUser.login.toLowerCase() || input === cashierUser.email.toLowerCase()) {
+                  accountFound = true;
+                } else {
+                  const tl = teamLeaders.find(t => t.login?.toLowerCase() === input || t.email.toLowerCase() === input);
+                  if (tl) accountFound = true;
+                  else {
+                    const liv = livreurs.find(l => l.login?.toLowerCase() === input || l.email.toLowerCase() === input);
+                    if (liv) accountFound = true;
+                  }
+                }
+
+                if (accountFound) {
+                  const code = Math.floor(1000 + Math.random() * 9000).toString();
+                  setResetOtpCode(code);
+                  setResetStep(2);
+                } else {
+                  setResetError("Aucun compte trouvé avec cet identifiant ou adresse email.");
+                }
+              }} className="space-y-4 text-xs">
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400 font-bold uppercase block">Identifiant ou Email de Récupération</label>
+                  <input
+                    type="text"
+                    required
+                    value={resetLoginInput}
+                    onChange={(e) => setResetLoginInput(e.target.value)}
+                    placeholder="Ex: admin, alice, yalami..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-indigo-500 font-semibold"
+                  />
+                </div>
+
+                {resetError && (
+                  <div className="p-3 bg-rose-950/45 border border-rose-900/40 text-rose-400 rounded-xl text-xs font-semibold">
+                    ⚠️ {resetError}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-550 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+                >
+                  Générer le Code de Réinitialisation
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                setResetError('');
+                
+                if (resetUserOtpInput !== resetOtpCode) {
+                  setResetError("Code de vérification incorrect.");
+                  return;
+                }
+
+                if (resetNewPassword.length < 4) {
+                  setResetError("Le nouveau mot de passe doit contenir au moins 4 caractères.");
+                  return;
+                }
+
+                const input = resetLoginInput.trim().toLowerCase();
+                // Apply update
+                if (input === adminUser.login.toLowerCase() || input === adminUser.email.toLowerCase()) {
+                  setAdminUser(prev => ({ ...prev, password: resetNewPassword }));
+                } else if (input === cashierUser.login.toLowerCase() || input === cashierUser.email.toLowerCase()) {
+                  setCashierUser(prev => ({ ...prev, password: resetNewPassword }));
+                } else {
+                  setTeamLeaders(prev => prev.map(t => (t.login?.toLowerCase() === input || t.email.toLowerCase() === input) ? { ...t, password: resetNewPassword } : t));
+                  setLivreurs(prev => prev.map(l => (l.login?.toLowerCase() === input || l.email.toLowerCase() === input) ? { ...l, password: resetNewPassword } : l));
+                }
+
+                setResetSuccess("Mot de passe mis à jour avec succès !");
+                setResetStep(1);
+                setIsResettingPassword(false);
+                setFleetPassword(resetNewPassword); // Pre-fill password field
+                setFleetUsername(resetLoginInput);
+              }} className="space-y-4 text-xs">
+                
+                <div className="p-3 bg-indigo-950/50 border border-indigo-900/50 text-indigo-300 rounded-xl space-y-1">
+                  <p className="font-bold font-mono">📱 Code de vérification simulé par SMS/Email :</p>
+                  <p className="text-xl font-bold font-mono text-center tracking-widest text-white">{resetOtpCode}</p>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400 font-bold uppercase block">Entrez le code de vérification</label>
+                  <input
+                    type="text"
+                    required
+                    value={resetUserOtpInput}
+                    onChange={(e) => setResetUserOtpInput(e.target.value)}
+                    placeholder="4 chiffres"
+                    maxLength={4}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-center font-mono text-white outline-none focus:border-indigo-500 font-bold tracking-widest"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400 font-bold uppercase block">Nouveau Mot de Passe</label>
+                  <input
+                    type="password"
+                    required
+                    value={resetNewPassword}
+                    onChange={(e) => setResetNewPassword(e.target.value)}
+                    placeholder="Entrez votre nouveau mot de passe"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                {resetError && (
+                  <div className="p-3 bg-rose-950/45 border border-rose-900/40 text-rose-400 rounded-xl text-xs font-semibold">
+                    ⚠️ {resetError}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-550 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+                >
+                  Confirmer le Nouveau Mot de passe
+                </button>
+              </form>
+            )}
+
+            <button
+              onClick={() => {
+                setIsResettingPassword(false);
+                setResetError('');
+              }}
+              className="text-xs text-slate-400 hover:text-white block mx-auto pt-2"
+            >
+              Annuler et retourner à la connexion
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans select-none selection:bg-indigo-500 selection:text-white">
         
@@ -619,19 +810,26 @@ export default function App() {
             </div>
           </div>
 
+          {resetSuccess && (
+            <div className="p-3 bg-emerald-950/60 border border-emerald-900/50 text-emerald-400 rounded-xl text-xs font-bold text-center">
+              ✅ {resetSuccess}
+            </div>
+          )}
+
           <form onSubmit={(e) => {
             e.preventDefault();
             setFleetLoginError(null);
+            setResetSuccess('');
             
             // Check Admin Credentials
-            if (fleetUsername.trim().toLowerCase() === 'admin' && fleetPassword === 'password123') {
+            if (fleetUsername.trim().toLowerCase() === adminUser.login.toLowerCase() && fleetPassword === adminUser.password) {
               setActiveRole('admin');
               setIsFleetLoggedIn(true);
               return;
             }
 
             // Check Cashier/Gestionnaire Credentials
-            if (fleetUsername.trim().toLowerCase() === 'caissier' && fleetPassword === 'password123') {
+            if (fleetUsername.trim().toLowerCase() === cashierUser.login.toLowerCase() && fleetPassword === cashierUser.password) {
               setActiveRole('cashier');
               setIsFleetLoggedIn(true);
               return;
@@ -687,7 +885,22 @@ export default function App() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Mot de passe sécurisé</label>
+              <div className="flex justify-between items-center">
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Mot de passe sécurisé</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsResettingPassword(true);
+                    setResetStep(1);
+                    setResetLoginInput(fleetUsername);
+                    setResetNewPassword('');
+                    setResetError('');
+                  }}
+                  className="text-[10px] text-indigo-400 hover:underline hover:text-indigo-300 font-semibold cursor-pointer"
+                >
+                  Mot de passe oublié ?
+                </button>
+              </div>
               <input
                 type="password"
                 required
@@ -892,12 +1105,41 @@ export default function App() {
 
           {/* Connected User session info & LogOut */}
           <div className="flex items-center gap-3 bg-slate-950 border border-slate-800 px-3 py-1 rounded-xl">
-            <div className="hidden md:flex flex-col text-right">
-              <span className="text-[10px] font-bold text-slate-200">
-                {activeRole === 'admin' ? 'Administrateur' : `Chef d'équipe (${selectedLeadId})`}
+            {/* Clickable Profile Avatar */}
+            <button
+              onClick={() => setShowWebProfileModal(true)}
+              className="w-8 h-8 rounded-full border border-indigo-500/50 overflow-hidden hover:scale-105 active:scale-95 transition-all focus:outline-none flex items-center justify-center bg-slate-900 group relative shrink-0 cursor-pointer"
+              title="Modifier mon profil"
+            >
+              <img
+                src={
+                  activeRole === 'admin'
+                    ? adminUser.photo
+                    : activeRole === 'cashier'
+                    ? cashierUser.photo
+                    : (teamLeaders.find(t => t.id === selectedLeadId)?.photo || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop")
+                }
+                referrerPolicy="no-referrer"
+                alt="Avatar"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-indigo-600/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
+                <User className="w-3.5 h-3.5 text-white" />
+              </div>
+            </button>
+
+            <div className="hidden md:flex flex-col text-right cursor-pointer" onClick={() => setShowWebProfileModal(true)} title="Modifier mon profil">
+              <span className="text-[10px] font-bold text-slate-200 hover:text-indigo-400 transition-colors">
+                {activeRole === 'admin'
+                  ? adminUser.name
+                  : activeRole === 'cashier'
+                  ? cashierUser.name
+                  : (teamLeaders.find(t => t.id === selectedLeadId)?.name || 'Chef d\'équipe')
+                }
               </span>
-              <span className="text-[8px] text-indigo-400 font-bold uppercase font-mono tracking-wider">
-                Session Active
+              <span className="text-[8px] text-indigo-400 font-bold uppercase font-mono tracking-wider flex items-center gap-0.5 justify-end">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                PROFIL {activeRole === 'admin' ? 'ADMIN' : activeRole === 'cashier' ? 'CAISSE' : 'CHEF'}
               </span>
             </div>
             
@@ -1275,10 +1517,236 @@ export default function App() {
             onAddBookingRequest={handleAddBookingRequest}
             clientCourses={clientCourses}
             setClientCourses={setClientCourses}
+            onUpdateDriverProfile={(updatedDriver) => {
+              setLivreurs(prev => prev.map(l => l.id === updatedDriver.id ? updatedDriver : l));
+            }}
           />
         </div>
 
       </div>
+
+      {/* WEB PROFILE MODAL */}
+      {showWebProfileModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-fade-in">
+            <div className="p-5 border-b border-slate-800 bg-slate-950/50 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 rounded-xl">
+                  <User className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Modifier mon Profil</h3>
+                  <p className="text-[10px] text-slate-400">Mettez à jour vos informations de connexion et constantes de contact</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowWebProfileModal(false)}
+                className="text-slate-400 hover:text-white text-sm bg-slate-800 hover:bg-slate-700 w-7 h-7 rounded-full flex items-center justify-center transition-all"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const updated = {
+                  name: formData.get('name') as string,
+                  login: formData.get('login') as string,
+                  email: formData.get('email') as string,
+                  phone: formData.get('phone') as string,
+                  password: formData.get('password') as string,
+                  photo: formData.get('photo') as string,
+                };
+
+                if (activeRole === 'admin') {
+                  setAdminUser(prev => ({ ...prev, ...updated }));
+                } else if (activeRole === 'cashier') {
+                  setCashierUser(prev => ({ ...prev, ...updated }));
+                } else if (activeRole === 'lead') {
+                  setTeamLeaders(prev => prev.map(t => t.id === selectedLeadId ? { ...t, ...updated } : t));
+                }
+
+                setShowWebProfileModal(false);
+              }}
+              className="p-5 space-y-4 text-xs"
+            >
+              {/* Avatar Selector section */}
+              <div className="space-y-2">
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Photo de Profil (Avatar)</label>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full border-2 border-indigo-500 overflow-hidden shrink-0 bg-slate-950">
+                    <img
+                      id="web-avatar-preview"
+                      src={
+                        activeRole === 'admin'
+                          ? adminUser.photo
+                          : activeRole === 'cashier'
+                          ? cashierUser.photo
+                          : (teamLeaders.find(t => t.id === selectedLeadId)?.photo || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop")
+                      }
+                      referrerPolicy="no-referrer"
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="space-y-1.5 flex-1">
+                    <input
+                      type="text"
+                      name="photo"
+                      id="photo-url-input"
+                      required
+                      defaultValue={
+                        activeRole === 'admin'
+                          ? adminUser.photo
+                          : activeRole === 'cashier'
+                          ? cashierUser.photo
+                          : (teamLeaders.find(t => t.id === selectedLeadId)?.photo || "")
+                      }
+                      onChange={(e) => {
+                        const preview = document.getElementById('web-avatar-preview') as HTMLImageElement;
+                        if (preview) preview.src = e.target.value;
+                      }}
+                      placeholder="URL de l'image de profil"
+                      className="w-full bg-slate-950 border border-slate-800 text-[11px] text-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500"
+                    />
+                    {/* Beautiful fast select circles */}
+                    <div className="flex gap-2">
+                      {[
+                        "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop", // Admin male
+                        "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop", // female cashier
+                        "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&h=100&fit=crop", // team leader 1
+                        "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop", // team leader 2
+                        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop"  // client male
+                      ].map((url, idx) => (
+                        <button
+                          type="button"
+                          key={idx}
+                          onClick={() => {
+                            const input = document.getElementById('photo-url-input') as HTMLInputElement;
+                            const preview = document.getElementById('web-avatar-preview') as HTMLImageElement;
+                            if (input && preview) {
+                              input.value = url;
+                              preview.src = url;
+                            }
+                          }}
+                          className="w-6.5 h-6.5 rounded-full overflow-hidden border border-slate-700 hover:border-indigo-500 transition-all shrink-0 cursor-pointer"
+                        >
+                          <img src={url} alt="preset" className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Nom Complet</label>
+                  <input
+                    type="text"
+                    name="name"
+                    required
+                    defaultValue={
+                      activeRole === 'admin'
+                        ? adminUser.name
+                        : activeRole === 'cashier'
+                        ? cashierUser.name
+                        : (teamLeaders.find(t => t.id === selectedLeadId)?.name || "")
+                    }
+                    className="w-full bg-slate-950 border border-slate-800 text-[11px] text-slate-200 rounded-lg px-2.5 py-1.5 focus:border-indigo-500 outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Login (Identifiant)</label>
+                  <input
+                    type="text"
+                    name="login"
+                    required
+                    defaultValue={
+                      activeRole === 'admin'
+                        ? adminUser.login
+                        : activeRole === 'cashier'
+                        ? cashierUser.login
+                        : (teamLeaders.find(t => t.id === selectedLeadId)?.login || "")
+                    }
+                    className="w-full bg-slate-950 border border-slate-800 text-[11px] text-slate-200 rounded-lg px-2.5 py-1.5 focus:border-indigo-500 outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Email (Mail)</label>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    defaultValue={
+                      activeRole === 'admin'
+                        ? adminUser.email
+                        : activeRole === 'cashier'
+                        ? cashierUser.email
+                        : (teamLeaders.find(t => t.id === selectedLeadId)?.email || "")
+                    }
+                    className="w-full bg-slate-950 border border-slate-800 text-[11px] text-slate-200 rounded-lg px-2.5 py-1.5 focus:border-indigo-500 outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Téléphone</label>
+                  <input
+                    type="text"
+                    name="phone"
+                    required
+                    defaultValue={
+                      activeRole === 'admin'
+                        ? adminUser.phone
+                        : activeRole === 'cashier'
+                        ? cashierUser.phone
+                        : (teamLeaders.find(t => t.id === selectedLeadId)?.phone || "")
+                    }
+                    className="w-full bg-slate-950 border border-slate-800 text-[11px] text-slate-200 rounded-lg px-2.5 py-1.5 focus:border-indigo-500 outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1 col-span-2">
+                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Mot de passe</label>
+                  <input
+                    type="password"
+                    name="password"
+                    required
+                    defaultValue={
+                      activeRole === 'admin'
+                        ? adminUser.password
+                        : activeRole === 'cashier'
+                        ? cashierUser.password
+                        : (teamLeaders.find(t => t.id === selectedLeadId)?.password || "")
+                    }
+                    className="w-full bg-slate-950 border border-slate-800 text-[11px] text-slate-200 rounded-lg px-2.5 py-1.5 focus:border-indigo-500 outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 flex gap-2">
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-550 text-white rounded-lg text-[11px] font-bold transition-all uppercase tracking-wider"
+                >
+                  Enregistrer les modifications
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowWebProfileModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[11px] font-bold transition-all uppercase"
+                >
+                  Annuler
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Production footer */}
       <footer className="mt-auto py-4 bg-slate-900 border-t border-slate-800 shrink-0 text-center text-[10px] text-slate-500">

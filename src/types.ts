@@ -32,6 +32,7 @@ export interface Livreur {
   joinDate: string;
   login?: string;
   password?: string;
+  photo?: string;
 }
 
 export interface TeamLeader {
@@ -44,6 +45,7 @@ export interface TeamLeader {
   joinDate: string;
   login?: string;
   password?: string;
+  photo?: string;
 }
 
 export interface UserRole {

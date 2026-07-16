@@ -10,6 +10,7 @@ interface MobileClientMockupProps {
   onAddBookingRequest: (booking: Omit<BookingRequest, 'id'>) => void;
   clientCourses: ClientCourse[];
   setClientCourses: React.Dispatch<React.SetStateAction<ClientCourse[]>>;
+  onUpdateDriverProfile?: (updatedDriver: Livreur) => void;
 }
 
 export default function MobileClientMockup({
@@ -19,12 +20,13 @@ export default function MobileClientMockup({
   onSpeedChange,
   onAddBookingRequest,
   clientCourses,
-  setClientCourses
+  setClientCourses,
+  onUpdateDriverProfile
 }: MobileClientMockupProps) {
   // Mobile active mode: 'driver' or 'client'
   const [mobileMode, setMobileMode] = useState<'driver' | 'client'>('client');
   const [clientSubTab, setClientSubTab] = useState<'order' | 'list'>('order');
-  const [driverSubTab, setDriverSubTab] = useState<'control' | 'deliveries'>('control');
+  const [driverSubTab, setDriverSubTab] = useState<'control' | 'deliveries' | 'profile'>('control');
 
   // --- CLIENT ORDERING FORM STATE ---
   const [clientName, setClientName] = useState('');
@@ -85,6 +87,16 @@ export default function MobileClientMockup({
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loggedInDriver, setLoggedInDriver] = useState<Livreur | null>(null);
+
+  // Mobile driver password reset states
+  const [isMobileResetting, setIsMobileResetting] = useState(false);
+  const [mobileResetStep, setMobileResetStep] = useState(1);
+  const [mobileResetLogin, setMobileResetLogin] = useState('');
+  const [mobileResetOtp, setMobileResetOtp] = useState('');
+  const [mobileResetUserOtpInput, setMobileResetUserOtpInput] = useState('');
+  const [mobileResetNewPassword, setMobileResetNewPassword] = useState('');
+  const [mobileResetError, setMobileResetError] = useState<string | null>(null);
+  const [mobileResetSuccess, setMobileResetSuccess] = useState<string | null>(null);
 
   // Active vehicle selection state
   const [selectedMobileVehicleId, setSelectedMobileVehicleId] = useState<string>('');
@@ -492,75 +504,241 @@ export default function MobileClientMockup({
         {mobileMode === 'driver' && (
           <div className="animate-fade-in text-xs">
             {!isAuthenticated ? (
-              /* LOGIN INTERFACE FOR DRIVER */
-              <div className="space-y-4 py-2 text-xs">
-                <div className="text-center space-y-1">
-                  <div className="w-10 h-10 bg-indigo-600/20 border border-indigo-500/30 rounded-2xl flex items-center justify-center mx-auto text-indigo-400 shadow shadow-indigo-500/10">
-                    <User className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-sm font-bold text-white">Espace Conducteur</h3>
-                  <p className="text-[10px] text-slate-400">Authentifiez-vous pour contrôler l'engin assigné.</p>
-                </div>
-
-                <form onSubmit={handleLogin} className="space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">Identifiant conducteur</label>
-                    <input
-                      type="text"
-                      required
-                      value={loginInput}
-                      onChange={(e) => setLoginInput(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 text-[11px] text-slate-200 rounded-lg px-2.5 py-1.5 focus:border-indigo-500 outline-none"
-                    />
+              isMobileResetting ? (
+                /* MOBILE DRIVER PASSWORD RESET VIEW */
+                <div className="space-y-4 py-2 text-xs">
+                  <div className="text-center space-y-1">
+                    <div className="w-10 h-10 bg-indigo-600/20 border border-indigo-500/30 rounded-2xl flex items-center justify-center mx-auto text-indigo-400">
+                      <Lock className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-sm font-bold text-white">Réinitialisation Mobile</h3>
+                    <p className="text-[10px] text-slate-400">Récupérez votre mot de passe de livreur</p>
                   </div>
 
-                  <div className="space-y-1 relative">
-                    <label className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">Mot de passe</label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        required
-                        value={passwordInput}
-                        onChange={(e) => setPasswordInput(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 text-[11px] text-slate-200 rounded-lg pl-2.5 pr-8 py-1.5 outline-none focus:border-indigo-500 font-mono"
-                      />
+                  {mobileResetStep === 1 ? (
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      setMobileResetError(null);
+                      setMobileResetSuccess(null);
+                      const matched = livreurs.find(l => 
+                        l.email.toLowerCase() === mobileResetLogin.trim().toLowerCase() ||
+                        (l.login && l.login.toLowerCase() === mobileResetLogin.trim().toLowerCase())
+                      );
+
+                      if (matched) {
+                        const code = Math.floor(1000 + Math.random() * 9000).toString();
+                        setMobileResetOtp(code);
+                        setMobileResetStep(2);
+                      } else {
+                        setMobileResetError("Aucun livreur trouvé.");
+                      }
+                    }} className="space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-400 block font-bold uppercase">Identifiant ou Email</label>
+                        <input
+                          type="text"
+                          required
+                          value={mobileResetLogin}
+                          onChange={(e) => setMobileResetLogin(e.target.value)}
+                          placeholder="Ex: yalami"
+                          className="w-full bg-slate-950 border border-slate-800 text-[11px] text-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      {mobileResetError && (
+                        <div className="p-2 border border-red-950 bg-red-950/40 text-red-400 rounded-lg text-[9px]">
+                          ⚠️ {mobileResetError}
+                        </div>
+                      )}
+
                       <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-2 top-2 text-slate-500 hover:text-slate-300"
+                        type="submit"
+                        className="w-full py-2 bg-indigo-600 hover:bg-indigo-550 text-white rounded-lg text-[10px] font-bold uppercase transition-all"
                       >
-                        {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        Recevoir un Code SMS
                       </button>
-                    </div>
-                  </div>
+                    </form>
+                  ) : (
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      setMobileResetError(null);
 
-                  {loginError && (
-                    <div className="p-2 border border-red-900/60 bg-red-950/40 text-red-400 rounded-lg text-[9.5px]">
-                      ⚠️ {loginError}
-                    </div>
+                      if (mobileResetUserOtpInput !== mobileResetOtp) {
+                        setMobileResetError("Code SMS incorrect.");
+                        return;
+                      }
+
+                      if (mobileResetNewPassword.length < 4) {
+                        setMobileResetError("Le mot de passe doit faire 4+ car.");
+                        return;
+                      }
+
+                      // Update password in memory
+                      const updatedLivreurs = livreurs.map(l => {
+                        if (l.email.toLowerCase() === mobileResetLogin.trim().toLowerCase() ||
+                            (l.login && l.login.toLowerCase() === mobileResetLogin.trim().toLowerCase())) {
+                          const updated = { ...l, password: mobileResetNewPassword };
+                          if (onUpdateDriverProfile) {
+                            onUpdateDriverProfile(updated);
+                          }
+                          return updated;
+                        }
+                        return l;
+                      });
+
+                      setMobileResetSuccess("Mot de passe mis à jour ! Connectez-vous.");
+                      setMobileResetStep(1);
+                      setIsMobileResetting(false);
+                      setPasswordInput(mobileResetNewPassword);
+                      setLoginInput(mobileResetLogin);
+                    }} className="space-y-3">
+                      
+                      <div className="p-2 bg-indigo-950/60 border border-indigo-900/40 rounded-xl text-center space-y-1">
+                        <span className="text-[8px] text-indigo-400 block font-mono font-bold uppercase">CODE SMS REÇU :</span>
+                        <span className="text-base font-mono font-extrabold text-white tracking-widest">{mobileResetOtp}</span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-400 block font-bold uppercase">Code de confirmation</label>
+                        <input
+                          type="text"
+                          required
+                          value={mobileResetUserOtpInput}
+                          onChange={(e) => setMobileResetUserOtpInput(e.target.value)}
+                          placeholder="4 chiffres"
+                          maxLength={4}
+                          className="w-full bg-slate-950 border border-slate-800 text-center font-mono font-bold text-[11px] text-white rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-400 block font-bold uppercase">Nouveau Mot de passe</label>
+                        <input
+                          type="password"
+                          required
+                          value={mobileResetNewPassword}
+                          onChange={(e) => setMobileResetNewPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full bg-slate-950 border border-slate-800 text-[11px] text-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      {mobileResetError && (
+                        <div className="p-2 border border-red-950 bg-red-950/40 text-red-400 rounded-lg text-[9px]">
+                          ⚠️ {mobileResetError}
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-550 text-white rounded-lg text-[10px] font-bold uppercase transition-all"
+                      >
+                        Enregistrer
+                      </button>
+                    </form>
                   )}
 
                   <button
-                    type="submit"
-                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-550 text-white rounded-lg text-[10px] font-bold transition-all uppercase tracking-wider"
+                    onClick={() => {
+                      setIsMobileResetting(false);
+                      setMobileResetError(null);
+                    }}
+                    className="text-[10px] text-slate-400 hover:text-white block mx-auto pt-1"
                   >
-                    Connexion Portative
+                    Retourner à la connexion
                   </button>
-                </form>
-
-                {/* Quick Help Credentials */}
-                <div className="bg-slate-950 p-2 rounded-xl border border-slate-850 text-[9.5px] text-slate-400 space-y-1">
-                  <span className="font-bold text-indigo-400 block font-mono">Conducteurs d'exemples :</span>
-                  <div className="flex justify-between">
-                    <span>Yassin (Moto):</span>
-                    <span className="font-mono text-slate-300 font-bold">yalami / password123</span>
+                </div>
+              ) : (
+                /* LOGIN INTERFACE FOR DRIVER */
+                <div className="space-y-4 py-2 text-xs">
+                  <div className="text-center space-y-1">
+                    <div className="w-10 h-10 bg-indigo-600/20 border border-indigo-500/30 rounded-2xl flex items-center justify-center mx-auto text-indigo-400 shadow shadow-indigo-500/10">
+                      <User className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-sm font-bold text-white">Espace Conducteur</h3>
+                    <p className="text-[10px] text-slate-400">Authentifiez-vous pour contrôler l'engin assigné.</p>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Chloé (Vélo):</span>
-                    <span className="font-mono text-slate-300 font-bold">chloe / password123</span>
+
+                  {mobileResetSuccess && (
+                    <div className="p-2 bg-emerald-950/60 border border-emerald-900/40 text-emerald-400 text-[9.5px] rounded-lg text-center font-bold">
+                      ✅ {mobileResetSuccess}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleLogin} className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">Identifiant conducteur</label>
+                      <input
+                        type="text"
+                        required
+                        value={loginInput}
+                        onChange={(e) => setLoginInput(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-[11px] text-slate-200 rounded-lg px-2.5 py-1.5 focus:border-indigo-500 outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1 relative">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">Mot de passe</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsMobileResetting(true);
+                            setMobileResetStep(1);
+                            setMobileResetLogin(loginInput);
+                            setMobileResetError(null);
+                          }}
+                          className="text-[9px] text-indigo-400 hover:underline hover:text-indigo-300 font-semibold cursor-pointer"
+                        >
+                          Oublié ?
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          value={passwordInput}
+                          onChange={(e) => setPasswordInput(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 text-[11px] text-slate-200 rounded-lg pl-2.5 pr-8 py-1.5 outline-none focus:border-indigo-500 font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-2 top-2 text-slate-500 hover:text-slate-300"
+                        >
+                          {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {loginError && (
+                      <div className="p-2 border border-red-900/60 bg-red-950/40 text-red-400 rounded-lg text-[9.5px]">
+                        ⚠️ {loginError}
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      className="w-full py-2 bg-indigo-600 hover:bg-indigo-550 text-white rounded-lg text-[10px] font-bold transition-all uppercase tracking-wider"
+                    >
+                      Connexion Portative
+                    </button>
+                  </form>
+
+                  {/* Quick Help Credentials */}
+                  <div className="bg-slate-950 p-2 rounded-xl border border-slate-850 text-[9.5px] text-slate-400 space-y-1">
+                    <span className="font-bold text-indigo-400 block font-mono">Conducteurs d'exemples :</span>
+                    <div className="flex justify-between">
+                      <span>Yassin (Moto):</span>
+                      <span className="font-mono text-slate-300 font-bold">yalami / password123</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Chloé (Vélo):</span>
+                      <span className="font-mono text-slate-300 font-bold">chloe / password123</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )
             ) : (
               /* LOGGED IN INTERFACE FOR DRIVER */
               <div className="space-y-3 text-xs">
@@ -586,28 +764,39 @@ export default function MobileClientMockup({
                 </div>
 
                 {/* Driver Sub-Tabs Navigation */}
-                <div className="grid grid-cols-2 gap-1 bg-slate-900 p-1 rounded-xl border border-slate-850">
+                <div className="grid grid-cols-3 gap-1 bg-slate-900 p-1 rounded-xl border border-slate-850">
                   <button
                     type="button"
                     onClick={() => setDriverSubTab('control')}
-                    className={`py-1 rounded-lg text-[9.5px] font-bold tracking-wider transition-all uppercase flex items-center justify-center gap-1 ${
+                    className={`py-1 rounded-lg text-[9px] font-bold tracking-wider transition-all uppercase flex items-center justify-center gap-0.5 ${
                       driverSubTab === 'control'
                         ? 'bg-indigo-600 text-white font-extrabold shadow'
                         : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
-                    🔑 Clés & GPS
+                    🔑 Clés
                   </button>
                   <button
                     type="button"
                     onClick={() => setDriverSubTab('deliveries')}
-                    className={`py-1 rounded-lg text-[9.5px] font-bold tracking-wider transition-all uppercase flex items-center justify-center gap-1 ${
+                    className={`py-1 rounded-lg text-[9px] font-bold tracking-wider transition-all uppercase flex items-center justify-center gap-0.5 ${
                       driverSubTab === 'deliveries'
                         ? 'bg-indigo-600 text-white font-extrabold shadow'
                         : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
-                    📦 Mes Livraisons ({driverCourses.length})
+                    📦 Courses
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDriverSubTab('profile')}
+                    className={`py-1 rounded-lg text-[9px] font-bold tracking-wider transition-all uppercase flex items-center justify-center gap-0.5 ${
+                      driverSubTab === 'profile'
+                        ? 'bg-indigo-600 text-white font-extrabold shadow'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    👤 Profil
                   </button>
                 </div>
 
@@ -701,44 +890,79 @@ export default function MobileClientMockup({
                           )}
                         </div>
 
-                        {/* Simulated Live Drive controls */}
-                        <div className="bg-slate-950 border border-slate-800/80 p-3 rounded-xl space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] text-slate-400 block uppercase font-bold font-mono">Télémétrie Vitesse</span>
-                            {isSpeeding && (
-                              <span className="px-1 bg-red-950/95 text-red-500 rounded text-[8px] font-bold animate-pulse">EXCÈS</span>
-                            )}
+                        {/* Beautiful Real-Time Bento Telemetry Grid */}
+                        <div className="space-y-2.5 animate-fade-in">
+                          {/* Speed slider block */}
+                          <div className="bg-slate-950 border border-slate-800/80 p-3 rounded-xl space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] text-slate-400 block uppercase font-bold font-mono">Contrôle de l'accélérateur</span>
+                              {isSpeeding && (
+                                <span className="px-1.5 py-0.25 bg-red-950/95 text-red-500 rounded text-[8px] font-extrabold animate-pulse border border-red-500/20">EXCÈS</span>
+                              )}
+                            </div>
+
+                            <div className="space-y-0.5">
+                              <input
+                                type="range"
+                                min="0"
+                                max="140"
+                                step="5"
+                                value={matchedVehicle.currentSpeed}
+                                onChange={handleSpeedSlider}
+                                className="w-full accent-indigo-500 outline-none cursor-ew-resize bg-slate-800 h-1.5 rounded"
+                              />
+                              <div className="flex justify-between text-[7.5px] text-slate-500 font-mono">
+                                <span>0 km/h</span>
+                                <span>Limiteur: {matchedVehicle.maxAllowedSpeed} km/h</span>
+                                <span>140 km/h</span>
+                              </div>
+                            </div>
                           </div>
 
-                          <div className="text-center py-1">
-                            <span className={`text-2xl font-bold font-mono block ${isSpeeding ? 'text-red-400' : 'text-indigo-400'}`}>
-                              {matchedVehicle.currentSpeed}
-                              <span className="text-xs font-normal text-slate-500 font-sans ml-0.5">km/h</span>
-                            </span>
-                            <span className="text-[8.5px] text-slate-500">Limiteur : {matchedVehicle.maxAllowedSpeed} km/h</span>
-                          </div>
+                          {/* Bento Grid layout */}
+                          <div className="grid grid-cols-2 gap-2 text-center">
+                            {/* Card 1: Vitesse */}
+                            <div className="bg-slate-950 border border-slate-800/80 p-2.5 rounded-xl space-y-1">
+                              <span className="text-[8px] text-indigo-400 font-bold uppercase tracking-wider block font-mono">⚡ Vitesse</span>
+                              <div className="py-1">
+                                <span className={`text-lg font-bold font-mono block ${isSpeeding ? 'text-red-400' : 'text-white'}`}>
+                                  {matchedVehicle.currentSpeed}
+                                  <span className="text-[9px] font-normal text-slate-500 font-sans ml-0.5">km/h</span>
+                                </span>
+                              </div>
+                            </div>
 
-                          <div className="space-y-0.5">
-                            <input
-                              type="range"
-                              min="0"
-                              max="140"
-                              step="5"
-                              value={matchedVehicle.currentSpeed}
-                              onChange={handleSpeedSlider}
-                              className="w-full accent-indigo-500 outline-none cursor-ew-resize bg-slate-800 h-1 rounded"
-                            />
-                          </div>
-                        </div>
+                            {/* Card 2: Niveau de Batterie */}
+                            <div className="bg-slate-950 border border-slate-800/80 p-2.5 rounded-xl space-y-1">
+                              <span className="text-[8px] text-emerald-400 font-bold uppercase tracking-wider block font-mono">🔋 Batterie</span>
+                              <div className="py-1">
+                                <span className="text-lg font-bold font-mono text-white block">
+                                  {Math.round((matchedVehicle.powerAvailableWh / matchedVehicle.batteryCapacityWh) * 100)}%
+                                </span>
+                              </div>
+                            </div>
 
-                        {/* Battery telemetry info */}
-                        <div className="bg-slate-950 border border-slate-800/80 p-2 rounded-lg flex items-center justify-between text-[11px]">
-                          <div className="flex items-center gap-1">
-                            <BatteryCharging className="w-3.5 h-3.5 text-emerald-400" />
-                            <span className="text-slate-400">Batterie restante</span>
-                          </div>
-                          <div className="flex items-center gap-1 font-mono font-bold text-slate-100">
-                            <span>{matchedVehicle ? Math.round((matchedVehicle.powerAvailableWh / matchedVehicle.batteryCapacityWh) * 100) : 0}%</span>
+                            {/* Card 3: Intensité (Current) */}
+                            <div className="bg-slate-950 border border-slate-800/80 p-2.5 rounded-xl space-y-1">
+                              <span className="text-[8px] text-amber-400 font-bold uppercase tracking-wider block font-mono">🔌 Intensité</span>
+                              <div className="py-1">
+                                <span className="text-lg font-bold font-mono text-white block">
+                                  {((matchedVehicle.currentSpeed * 0.15) + 1.2).toFixed(1)}
+                                  <span className="text-[9px] font-normal text-slate-500 font-sans ml-0.5">A</span>
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Card 4: Puissance (Power) */}
+                            <div className="bg-slate-950 border border-slate-800/80 p-2.5 rounded-xl space-y-1">
+                              <span className="text-[8px] text-sky-400 font-bold uppercase tracking-wider block font-mono">⚙️ Puissance</span>
+                              <div className="py-1">
+                                <span className="text-lg font-bold font-mono text-white block">
+                                  {(((matchedVehicle.currentSpeed * 0.15) + 1.2) * 48).toFixed(0)}
+                                  <span className="text-[9px] font-normal text-slate-500 font-sans ml-0.5">W</span>
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -886,6 +1110,129 @@ export default function MobileClientMockup({
                         })}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* DRIVER PROFILE TAB */}
+                {driverSubTab === 'profile' && (
+                  <div className="space-y-3 animate-fade-in text-xs bg-slate-900 p-3 rounded-2xl border border-slate-850">
+                    <h4 className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider block font-mono border-b border-slate-850 pb-1.5 flex items-center gap-1.5">
+                      👤 Modifier mon Profil
+                    </h4>
+                    
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        const updated = {
+                          ...loggedInDriver!,
+                          name: formData.get('name') as string,
+                          login: formData.get('login') as string,
+                          email: formData.get('email') as string,
+                          phone: formData.get('phone') as string,
+                          password: formData.get('password') as string,
+                          photo: formData.get('photo') as string,
+                        };
+
+                        setLoggedInDriver(updated);
+                        if (onUpdateDriverProfile) {
+                          onUpdateDriverProfile(updated);
+                        }
+                        alert("Profil mobile mis à jour avec succès !");
+                      }}
+                      className="space-y-2.5"
+                    >
+                      <div className="flex items-center gap-3 bg-slate-950 p-2 rounded-xl border border-slate-850/60">
+                        <div className="w-10 h-10 rounded-full overflow-hidden border border-indigo-500 shrink-0 bg-slate-900 flex items-center justify-center text-white">
+                          <img
+                            id="mobile-avatar-preview"
+                            src={loggedInDriver?.photo || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop"}
+                            referrerPolicy="no-referrer"
+                            alt="Preview"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop";
+                            }}
+                          />
+                        </div>
+                        <div className="flex-1 space-y-0.5">
+                          <span className="text-[8px] text-slate-500 font-bold block uppercase">URL de votre photo</span>
+                          <input
+                            type="text"
+                            name="photo"
+                            required
+                            defaultValue={loggedInDriver?.photo || ""}
+                            onChange={(e) => {
+                              const preview = document.getElementById('mobile-avatar-preview') as HTMLImageElement;
+                              if (preview) preview.src = e.target.value;
+                            }}
+                            className="w-full bg-slate-900 border border-slate-800 text-[10px] text-slate-300 rounded px-2 py-1 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="text-[8.5px] text-slate-400 font-bold uppercase block">Nom complet</span>
+                        <input
+                          type="text"
+                          name="name"
+                          required
+                          defaultValue={loggedInDriver?.name || ""}
+                          className="w-full bg-slate-950 border border-slate-800 text-[10.5px] text-slate-200 rounded px-2 py-1.5 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="text-[8.5px] text-slate-400 font-bold uppercase block">Login (Identifiant)</span>
+                        <input
+                          type="text"
+                          name="login"
+                          required
+                          defaultValue={loggedInDriver?.login || ""}
+                          className="w-full bg-slate-950 border border-slate-800 text-[10.5px] text-slate-200 rounded px-2 py-1.5 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="text-[8.5px] text-slate-400 font-bold uppercase block">Email (Mail)</span>
+                        <input
+                          type="email"
+                          name="email"
+                          required
+                          defaultValue={loggedInDriver?.email || ""}
+                          className="w-full bg-slate-950 border border-slate-800 text-[10.5px] text-slate-200 rounded px-2 py-1.5 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="text-[8.5px] text-slate-400 font-bold uppercase block">Téléphone</span>
+                        <input
+                          type="text"
+                          name="phone"
+                          required
+                          defaultValue={loggedInDriver?.phone || ""}
+                          className="w-full bg-slate-950 border border-slate-800 text-[10.5px] text-slate-200 rounded px-2 py-1.5 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="text-[8.5px] text-slate-400 font-bold uppercase block">Mot de passe</span>
+                        <input
+                          type="password"
+                          name="password"
+                          required
+                          defaultValue={loggedInDriver?.password || ""}
+                          className="w-full bg-slate-950 border border-slate-800 text-[10.5px] text-slate-200 rounded px-2 py-1.5 outline-none focus:border-indigo-500 font-mono"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full py-2 bg-indigo-600 hover:bg-indigo-550 text-white text-[10.5px] rounded-lg font-bold uppercase tracking-wider mt-1 transition-all"
+                      >
+                        Enregistrer
+                      </button>
+                    </form>
                   </div>
                 )}
 
